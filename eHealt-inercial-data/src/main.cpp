@@ -1,81 +1,81 @@
-#include <Arduino_LSM6DS3.h>
 #include <ArduinoBLE.h>
+#include <Arduino_LSM6DS3.h>
+#include <Wire.h>
+#include <ArduinoJson.h>
 
-BLEService imuService("180D"); // UUID de ejemplo para el servicio
-BLECharacteristic imuDataCharacteristic("2A37", BLERead | BLENotify, 24); // Un solo característico para todos los datos
+
+BLEService imuService("12345678-1234-5678-1234-56789abcdef0"); // UUID del servicio
+BLECharacteristic imuDataCharacteristic("12345678-1234-5678-1234-56789abcdef1", BLERead | BLENotify, 20); // UUID de la característica
 
 void setup() {
-  Serial.begin(9600);
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, LOW);
+    Serial.begin(9600);
 
-  // Inicializar BLE
-  if (!BLE.begin()) {
-    Serial.println("Iniciando Bluetooth® Low Energy fallido!");
-    while (1);
-  }
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
 
-  BLE.setLocalName("IMU Sensor");
-  BLE.setAdvertisedService(imuService);
-  imuService.addCharacteristic(imuDataCharacteristic);
-  BLE.addService(imuService);
-  BLE.advertise();
+    // Iniciar el BLE
+    if (!BLE.begin()) {
+        Serial.println("Failed to initialize BLE!");
+        while (1);
+    }
 
-  Serial.println("Bluetooth® device active, waiting for connections...");
+    // Añadir servicio y característica
+    BLE.setLocalName("Nano 33 IoT");
+    BLE.setAdvertisedService(imuService);
+    imuService.addCharacteristic(imuDataCharacteristic);
+    BLE.addService(imuService);
+    
+    BLE.advertise();
+    Serial.println("BLE device is now advertising...");
 
-  // Inicializar IMU
-  if (!IMU.begin()) {
-    Serial.println("IMU no detectado, revisa las conexiones.");
-    while (1);
-  }
-  Serial.println("IMU iniciado correctamente.");
+    if (!IMU.begin()) {
+      Serial.println("IMU no detectado, revisa las conexiones.");
+      while (1);
+    }
+
 }
 
 void loop() {
-  BLEDevice central = BLE.central(); // Esperar conexión del central
+    BLE.poll();
 
-  if (central) {
-    Serial.print("Conectado a central: ");
-    Serial.println(central.address());
+    BLEDevice central = BLE.central();
+    if (central) {
+        Serial.print("Connected to central: ");
+        Serial.println(central.address());
 
-    while (central.connected()) {
-      float ax, ay, az;
-      float gx, gy, gz;
+        float accelX, accelY, accelZ;
+        float gyroX, gyroY, gyroZ;
+        while (central.connected()) {
+          if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
+            IMU.readAcceleration(accelX, accelY, accelZ);
+            IMU.readGyroscope(gyroX, gyroY, gyroZ);
 
-      if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable()) {
-        IMU.readAcceleration(ax, ay, az);
-        IMU.readGyroscope(gx, gy, gz);
+            digitalWrite(LED_BUILTIN, HIGH);
+            StaticJsonDocument<256> jsonDoc;
+            jsonDoc["id"] = millis();
 
-        // Crear una cadena de datos en formato adecuado
-        String imuData = String(ax) + "," + String(ay) + "," + String(az) + "," +
-                         String(gx) + "," + String(gy) + "," + String(gz);
+            JsonObject accel = jsonDoc.createNestedObject("accelerometer");
+            accel["x"] = accelX;
+            accel["y"] = accelY;
+            accel["z"] = accelZ;
 
-        // Enviar datos a través de BLE
-        imuDataCharacteristic.setValue(imuData.c_str()); // Cambiar a formato de cadena
+            JsonObject gyro = jsonDoc.createNestedObject("gyroscope");
+            gyro["x"] = gyroX;
+            gyro["y"] = gyroY;
+            gyro["z"] = gyroZ;
 
-        // Parpadeo del LED para indicar actividad
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(100);
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(100);
+            digitalWrite(LED_BUILTIN, LOW);
 
-        // Mostrar datos en el Serial Monitor
-        Serial.print("Aceleración - X: ");
-        Serial.print(ax);
-        Serial.print(", Y: ");
-        Serial.print(ay);
-        Serial.print(", Z: ");
-        Serial.println(az);
-        Serial.print("Giroscopio - X: ");
-        Serial.print(gx);
-        Serial.print(", Y: ");
-        Serial.print(gy);
-        Serial.print(", Z: ");
-        Serial.println(gz);
-      }
+            String jsonString;
+            serializeJson(jsonDoc, jsonString);
+
+            imuDataCharacteristic.writeValue(jsonString.c_str(), jsonString.length());
+            Serial.println(jsonString);
+            delay(25);
+          }
+        }
+        Serial.print("Disconnected from central: ");
+        Serial.println(central.address());
+
     }
-
-    Serial.print("Desconectado de central: ");
-    Serial.println(central.address());
-  }
 }
