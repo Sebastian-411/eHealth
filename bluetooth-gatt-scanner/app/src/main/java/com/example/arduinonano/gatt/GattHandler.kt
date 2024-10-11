@@ -17,7 +17,7 @@ import java.io.IOException
  * @param context The context in which GATT operations are executed.
  */
 class GattHandler(private val context: Context) {
-    val messageQueue = MessageQueue()
+    private val receivedChunks = mutableMapOf<String, StringBuilder>()
 
     private var bluetoothGatt: BluetoothGatt? = null
     private val CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb") // Client Characteristic Configuration Descriptor UUID
@@ -94,15 +94,32 @@ class GattHandler(private val context: Context) {
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
-
             characteristic?.let {
-                val updatedValue = String(it.value, Charsets.UTF_8) // Decodificar el mensaje
-                Log.d("GattHandler", "Characteristic ${it.uuid} changed value: $updatedValue")
-                if (updatedValue != null) {
-                    messageQueue.addMessage(updatedValue)
-                }
-
+                val updatedValue = String(it.value, Charsets.UTF_8)
+                processReceivedData(updatedValue)
             }
+        }
+
+        private fun processReceivedData(data: String) {
+            val parts = data.split("#", limit = 2)
+            if (parts.size == 2) {
+                val id = parts[0]
+                val jsonData = parts[1]
+
+                val jsonBuilder = receivedChunks.getOrPut(id) { StringBuilder() }
+                jsonBuilder.append(jsonData)
+
+                if (isCompleteMessageReceived(jsonBuilder.toString())) {
+                    val completeJson = jsonBuilder.toString()
+                    println("Complete JSON received with ID $id: $completeJson")
+
+                    receivedChunks.remove(id)
+                }
+            }
+        }
+
+        private fun isCompleteMessageReceived(data: String): Boolean {
+            return data.endsWith("}")
         }
 
 
