@@ -12,67 +12,75 @@ import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ListView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
 import com.example.arduinonano.gatt.GattHandler
 
-/**
- * MainActivity manages the user interface for scanning and connecting to Bluetooth devices.
- * It handles Bluetooth permissions, scanning, and displaying discovered devices.
- */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private lateinit var devicesAdapter: ArrayAdapter<String>
     private val devicesList = mutableListOf<BluetoothDevice>()
-    private var gattHandler: GattHandler? = null
+    private lateinit var gattHandler: GattHandler
 
     private lateinit var scanButton: Button
     private lateinit var disconnectButton: Button
     private lateinit var deviceListView: ListView
+    private lateinit var connectedDeviceName: TextView
 
-    /**
-     * Initializes the activity, UI elements, and Bluetooth components.
-     */
+    private val viewModel: BluetoothDeviceViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         requestPermissions()
 
-        // Initialize UI elements
         scanButton = findViewById(R.id.scanButton)
         disconnectButton = findViewById(R.id.disconnectButton)
         deviceListView = findViewById(R.id.deviceListView)
+        connectedDeviceName = findViewById(R.id.connectedDeviceName)
 
-        // Initialize Bluetooth components
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
 
-        // Set up the ArrayAdapter to display discovered devices
         devicesAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         deviceListView.adapter = devicesAdapter
 
-        // Set up scan button click listener
         scanButton.setOnClickListener { startBluetoothScan() }
+        disconnectButton.setOnClickListener { gattHandler.disconnectGatt() }
 
-        // Set up disconnect button click listener
-        disconnectButton.setOnClickListener { gattHandler?.disconnectGatt() }
-
-        // Register receiver to handle discovered Bluetooth devices
         registerReceiver(receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
 
-        // Handle device selection from the list
         deviceListView.setOnItemClickListener { _, _, position, _ ->
             val device = devicesList[position]
-            gattHandler = GattHandler(this)
-            gattHandler?.connectGatt(device)
+            gattHandler = GattHandler(this, viewModel)
+            gattHandler.connectGatt(device)
+            stopBluetoothScan()
+            updateUIForConnecting()
         }
+
+        viewModel.isConnected.observe(this, Observer { connected ->
+            if (connected) {
+                showToast("Connected to device")
+            } else {
+                showToast("Disconnected from device")
+                updateUIForDisconnected()
+            }
+        })
+
+        viewModel.deviceName.observe(this, Observer { name ->
+            connectedDeviceName.text = name ?: "No device connected"
+        })
+
+        viewModel.deviceAddress.observe(this, Observer { address ->
+            // Update UI with device address if needed
+        })
     }
 
-    /**
-     * Requests necessary Bluetooth permissions using the PermissionHandler.
-     */
     private fun requestPermissions() {
         val permissionHandler = PermissionHandler(this) { granted ->
             if (!granted) {
@@ -82,32 +90,28 @@ class MainActivity : AppCompatActivity() {
         permissionHandler.checkPermissions()
     }
 
-    /**
-     * Cleans up resources, disconnects GATT, and unregisters the broadcast receiver.
-     */
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(receiver)
-        gattHandler?.disconnectGatt()
+        gattHandler.disconnectGatt()
     }
 
-    /**
-     * Starts Bluetooth scanning and updates the UI with discovered devices.
-     */
     @SuppressLint("MissingPermission")
     private fun startBluetoothScan() {
+        stopBluetoothScan()
+        bluetoothAdapter.startDiscovery()
+        showToast("Scanning for devices...")
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopBluetoothScan() {
         devicesAdapter.clear()
         devicesList.clear()
         if (bluetoothAdapter.isDiscovering) {
             bluetoothAdapter.cancelDiscovery()
         }
-        bluetoothAdapter.startDiscovery()
-        showToast("Scanning for devices...")
     }
 
-    /**
-     * BroadcastReceiver to handle discovered Bluetooth devices during the scan.
-     */
     private val receiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -122,12 +126,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Displays a toast message to the user.
-     *
-     * @param message The message to be displayed.
-     */
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateUIForConnecting() {
+        devicesAdapter.clear()
+        scanButton.isEnabled = false
+        disconnectButton.isEnabled = true
+    }
+
+    private fun updateUIForDisconnected() {
+        scanButton.isEnabled = true
+        disconnectButton.isEnabled = false
+        connectedDeviceName.text = "No device connected"
     }
 }
