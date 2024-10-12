@@ -1,4 +1,4 @@
-package com.example.arduinonano
+package com.example.arduinonano.utils
 
 import android.Manifest
 import android.os.Build

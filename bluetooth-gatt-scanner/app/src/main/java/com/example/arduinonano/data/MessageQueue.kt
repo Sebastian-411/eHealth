@@ -1,4 +1,4 @@
-package com.example.arduinonano.gatt
+package com.example.arduinonano.data
 
 import android.util.Log
 import org.json.JSONException

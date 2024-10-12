@@ -1,8 +1,9 @@
-package com.example.arduinonano.gatt
+package com.example.arduinonano.data
 
 class MessageAssembler {
     private val receivedChunks = mutableMapOf<String, StringBuilder>()
 
+    // TODO: Implement a better way to assemble messages as JSON objects
     fun processReceivedData(data: String): String? {
         val parts = data.split("#", limit = 2)
         if (parts.size == 2) {
