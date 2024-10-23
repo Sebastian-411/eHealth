@@ -5,6 +5,8 @@ import android.bluetooth.*
 import android.util.Log
 import com.example.arduinonano.viewmodel.BluetoothDeviceViewModel
 import com.example.arduinonano.data.MessageAssembler
+import org.json.JSONException
+import org.json.JSONObject
 import java.util.*
 
 class BluetoothGattCallbackHandler(
@@ -94,15 +96,19 @@ class BluetoothGattCallbackHandler(
     private fun parseCharacteristic(bluetoothGattCharacteristic: BluetoothGattCharacteristic) {
         if(bluetoothGattCharacteristic.uuid == CAPTURE_CHARACTERISTIC) {
             val updatedValue = bluetoothGattCharacteristic.value[0]
-            println("Start signal received: $updatedValue")
-            viewModel.updateSendingDataStatus(updatedValue == 0.toByte())
+            viewModel.updateDeviceStoppedStatus(updatedValue == 0.toByte())
             return
         }
 
         val updatedValue = String(bluetoothGattCharacteristic.value, Charsets.UTF_8)
         val completeJson = messageAssembler.processReceivedData(updatedValue)
         completeJson?.let {
-            println("Complete JSON received: $it")
+            try {
+                val jsonObject = JSONObject(it)
+                Log.d("BluetoothGattCallback", "Mensaje procesado: $jsonObject")
+            } catch (e: JSONException) {
+                Log.e("BluetoothGattCallback", "Error procesando JSON: ${e.message}")
+            }
         }
     }
 }

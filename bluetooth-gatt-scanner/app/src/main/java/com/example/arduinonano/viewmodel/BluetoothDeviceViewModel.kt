@@ -13,6 +13,9 @@ class BluetoothDeviceViewModel : ViewModel() {
     private val _sendingData = MutableLiveData(false)
     val sendingData: LiveData<Boolean> get() = _sendingData
 
+    private val _deviceStopped = MutableLiveData(false)
+    val deviceStopped: LiveData<Boolean> get() = _deviceStopped
+
     /**
      * Updates the sending data status in the ViewModel.
      *
@@ -21,4 +24,14 @@ class BluetoothDeviceViewModel : ViewModel() {
     fun updateSendingDataStatus(sendingData: Boolean) {
         _sendingData.postValue(sendingData)
     }
+
+    /**
+     * Updates the device stopped status in the ViewModel.
+     *
+     * @param deviceStopped True if the device has stopped, false otherwise.
+     */
+    fun updateDeviceStoppedStatus(deviceStopped: Boolean) {
+        _deviceStopped.postValue(deviceStopped)
+    }
+
 }

@@ -129,6 +129,13 @@ class MainActivityUIController(
 
     private fun observeViewModel() {
         viewModel.sendingData.observe(context as MainActivity) { updateStartDataCaptureButtonState() }
+        viewModel.deviceStopped.observe(context) {
+            if (it) {
+                bluetoothDeviceRepository.stopCapture()
+                viewModel.updateSendingDataStatus(false)
+                showToast(context, "Toma de datos detenida.")
+            }
+        }
     }
 
     private fun observeDevicesLiveData() {
