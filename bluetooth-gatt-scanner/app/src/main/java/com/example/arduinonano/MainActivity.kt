@@ -34,21 +34,6 @@ class MainActivity : AppCompatActivity() {
         bluetoothDeviceRepository = BluetoothDeviceRepository(this, viewModel)
         uiController = MainActivityUIController(this, viewModel, bluetoothDeviceRepository)
         uiController.setupUI()
-
-        observeViewModel()
-    }
-
-    /**
-     * Observes the BluetoothDeviceViewModel for changes in connection state and device name.
-     */
-    private fun observeViewModel() {
-        viewModel.isConnected.observe(this) { connected ->
-            uiController.updateConnectionState(connected)
-        }
-
-        viewModel.deviceName.observe(this) { name ->
-            uiController.updateDeviceName(name)
-        }
     }
 
     /**

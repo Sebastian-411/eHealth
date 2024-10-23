@@ -1,9 +1,9 @@
 package com.example.arduinonano.ui
 
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.widget.Button
 import android.widget.ListView
-import android.widget.TextView
 import com.example.arduinonano.viewmodel.BluetoothDeviceViewModel
 import com.example.arduinonano.MainActivity
 import com.example.arduinonano.R
@@ -11,8 +11,8 @@ import com.example.arduinonano.bluetooth.BluetoothDeviceRepository
 import com.example.arduinonano.utils.UIUtils.showToast
 
 /**
- * UI controller for managing the main activity's user interface, including button clicks
- * and Bluetooth device list updates.
+ * UI controller for managing the main activity's user interface, including handling Bluetooth device connections,
+ * disconnections, and list updates.
  *
  * @param context The context (usually the activity) that this controller is bound to.
  * @param viewModel The ViewModel that provides Bluetooth device information.
@@ -24,120 +24,105 @@ class MainActivityUIController(
     private val bluetoothDeviceRepository: BluetoothDeviceRepository
 ) {
 
-    private lateinit var scanButton: Button
-    private lateinit var disconnectButton: Button
+    private lateinit var connectNewDeviceButton: Button
     private lateinit var deviceListView: ListView
-    private lateinit var connectedDeviceName: TextView
-
+    private lateinit var connectedDevicesListView: ListView
     private lateinit var devicesAdapter: BluetoothDeviceListAdapter
+    private lateinit var connectedDevicesAdapter: ConnectedDeviceAdapter
+
+    private val connectedDevices: MutableList<BluetoothDevice> = mutableListOf()
 
     /**
-     * Initializes and sets up the UI components, including button listeners and device list.
+     * Initializes the UI components and sets up listeners for button clicks and list updates.
      */
     fun setupUI() {
-        scanButton = (context as MainActivity).findViewById(R.id.scanButton)
-        disconnectButton = context.findViewById(R.id.disconnectButton)
+        connectNewDeviceButton = (context as MainActivity).findViewById(R.id.connectNewDeviceButton)
+        connectedDevicesListView = context.findViewById(R.id.connectedDevicesListView)
         deviceListView = context.findViewById(R.id.deviceListView)
-        connectedDeviceName = context.findViewById(R.id.connectedDeviceName)
 
         devicesAdapter = BluetoothDeviceListAdapter(context, mutableListOf())
-        deviceListView.adapter = devicesAdapter
+        connectedDevicesAdapter = ConnectedDeviceAdapter(context, connectedDevices, this::disconnectDevice)
 
-        scanButton.setOnClickListener { startBluetoothScan() }
-        disconnectButton.setOnClickListener { bluetoothDeviceRepository.disconnectGatt() }
+        deviceListView.adapter = devicesAdapter
+        connectedDevicesListView.adapter = connectedDevicesAdapter
+
+        connectNewDeviceButton.setOnClickListener { startBluetoothScan() }
 
         setupDeviceListListener()
         observeDeviceList()
+        observeConnectedDevices()
     }
 
     /**
-     * Sets up the click listener for the Bluetooth device list. Handles device selection
-     * and GATT connection.
+     * Sets up the listener for the device list view, allowing users to connect to devices from the list.
      */
     private fun setupDeviceListListener() {
         deviceListView.setOnItemClickListener { _, _, position, _ ->
-            bluetoothDeviceRepository.stopScan()
             val device = bluetoothDeviceRepository.getDeviceAt(position)
-            bluetoothDeviceRepository.connectGatt(device)
-            updateUIForConnecting()
-        }
-    }
 
-    /**
-     * Starts the Bluetooth scanning process.
-     */
-    private fun startBluetoothScan() {
-        stopBluetoothScan()
-        bluetoothDeviceRepository.startScan()
-        showToast(context, "Scanning for devices...")
-    }
+            if (!connectedDevices.contains(device)) {
+                bluetoothDeviceRepository.connectGatt(device)
+                connectedDevices.add(device)
+                connectedDevicesAdapter.notifyDataSetChanged()
 
-    /**
-     * Stops the Bluetooth scanning process.
-     */
-    private fun stopBluetoothScan() {
-        bluetoothDeviceRepository.stopScan()
-    }
-
-    /**
-     * Observes changes in the list of Bluetooth devices and updates the UI accordingly.
-     */
-    private fun observeDeviceList() {
-        bluetoothDeviceRepository.getDevicesLiveData().observe(context as MainActivity) { devices ->
-            devicesAdapter.clear()
-            devices.forEach { device ->
-                devicesAdapter.add(device)
+                bluetoothDeviceRepository.stopScan()
+                devicesAdapter.clear()
+            } else {
+                showToast(context, "Dispositivo ya conectado.")
             }
         }
     }
 
     /**
-     * Updates the UI to reflect the connected state of a Bluetooth device.
-     *
-     * @param isConnected True if connected, false otherwise.
+     * Starts a new Bluetooth scan and filters out already connected devices from the scanned list.
      */
-    fun updateConnectionState(isConnected: Boolean) {
-        if (isConnected) {
-            showToast(context, "Connected to device")
-            updateUIForConnecting()
-        } else {
-            showToast(context, "Disconnected from device")
-            updateUIForDisconnected()
+    private fun startBluetoothScan() {
+        bluetoothDeviceRepository.stopScan()
+        bluetoothDeviceRepository.startScan()
+        showToast(context, "Buscando dispositivos...")
+
+        val availableDevices = bluetoothDeviceRepository.getAvailableDevices().filter { !connectedDevices.contains(it) }
+        devicesAdapter.updateDevices(availableDevices)
+    }
+
+    /**
+     * Observes the device list LiveData from the repository and updates the UI when new devices are found.
+     */
+    private fun observeDeviceList() {
+        bluetoothDeviceRepository.getDevicesLiveData().observe(context as MainActivity) { devices ->
+            val availableDevices = devices.filter { !connectedDevices.contains(it) }
+            devicesAdapter.updateDevices(availableDevices)
         }
     }
 
     /**
-     * Updates the displayed Bluetooth device name in the UI.
+     * Observes the connected devices and updates the UI when new devices are connected.
+     */
+    private fun observeConnectedDevices() {
+        viewModel.deviceName.observe(context as MainActivity) { name ->
+            name?.let {
+                connectedDevicesAdapter.notifyDataSetChanged()
+            }
+        }
+    }
+
+    /**
+     * Disconnects a Bluetooth device and updates the connected devices list.
      *
-     * @param name The name of the connected Bluetooth device.
+     * @param device The Bluetooth device to disconnect.
      */
-    fun updateDeviceName(name: String?) {
-        connectedDeviceName.text = name ?: "No device connected"
+    private fun disconnectDevice(device: BluetoothDevice) {
+        bluetoothDeviceRepository.disconnectGatt(device)
+        connectedDevices.remove(device)
+        connectedDevicesAdapter.notifyDataSetChanged()
     }
 
     /**
-     * Updates the UI when connecting to a Bluetooth device.
-     */
-    private fun updateUIForConnecting() {
-        devicesAdapter.clear()
-        scanButton.isEnabled = false
-        disconnectButton.isEnabled = true
-    }
-
-    /**
-     * Updates the UI when disconnected from a Bluetooth device.
-     */
-    private fun updateUIForDisconnected() {
-        scanButton.isEnabled = true
-        disconnectButton.isEnabled = false
-        connectedDeviceName.text = "No device connected"
-    }
-
-    /**
-     * Cleans up resources and stops any active Bluetooth scans.
+     * Cleans up resources when the activity is destroyed, including stopping Bluetooth scans
+     * and disconnecting all devices.
      */
     fun cleanup() {
-        bluetoothDeviceRepository.disconnectGatt()
         bluetoothDeviceRepository.stopScan()
+        bluetoothDeviceRepository.disconnectAll()
     }
 }
