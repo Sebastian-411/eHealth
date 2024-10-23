@@ -9,39 +9,16 @@ import androidx.lifecycle.ViewModel
  * Provides LiveData for device name, address, and connection status.
  */
 class BluetoothDeviceViewModel : ViewModel() {
-    private val _deviceName = MutableLiveData<String>()
-    val deviceName: LiveData<String> get() = _deviceName
 
-    private val _deviceAddress = MutableLiveData<String>()
-    val deviceAddress: LiveData<String> get() = _deviceAddress
-
-    private val _isConnected = MutableLiveData<Boolean>()
-    val isConnected: LiveData<Boolean> get() = _isConnected
+    private val _sendingData = MutableLiveData(false)
+    val sendingData: LiveData<Boolean> get() = _sendingData
 
     /**
-     * Updates the device name stored in the ViewModel.
+     * Updates the sending data status in the ViewModel.
      *
-     * @param name The name of the Bluetooth device.
+     * @param sendingData True if sending data to the Bluetooth device, false otherwise.
      */
-    fun updateDeviceName(name: String) {
-        _deviceName.postValue(name)
-    }
-
-    /**
-     * Updates the device address stored in the ViewModel.
-     *
-     * @param address The address of the Bluetooth device.
-     */
-    fun updateDeviceAddress(address: String) {
-        _deviceAddress.postValue(address)
-    }
-
-    /**
-     * Updates the connection status in the ViewModel.
-     *
-     * @param isConnected True if connected to the Bluetooth device, false otherwise.
-     */
-    fun updateConnectionStatus(isConnected: Boolean) {
-        _isConnected.postValue(isConnected)
+    fun updateSendingDataStatus(sendingData: Boolean) {
+        _sendingData.postValue(sendingData)
     }
 }

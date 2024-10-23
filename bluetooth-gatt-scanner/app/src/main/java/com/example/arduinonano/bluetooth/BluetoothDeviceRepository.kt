@@ -19,7 +19,7 @@ class BluetoothDeviceRepository(
     private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private val devicesList = mutableListOf<BluetoothDevice>()
     private val devicesLiveData = MutableLiveData<List<BluetoothDevice>>()
-    private val connectedDevices = mutableMapOf<BluetoothDevice, BluetoothGatt>()
+    private val connectedDevices = mutableMapOf<BluetoothDevice, Pair<BluetoothGatt, BluetoothGattCallbackHandler>>()
 
     private val receiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
@@ -54,26 +54,20 @@ class BluetoothDeviceRepository(
 
     @SuppressLint("MissingPermission")
     fun connectGatt(device: BluetoothDevice) {
-        viewModel.updateDeviceName(device.name ?: "Unknown")
-        viewModel.updateDeviceAddress(device.address)
-
         val gattCallbackHandler = BluetoothGattCallbackHandler(viewModel)
         val gatt = device.connectGatt(context, false, gattCallbackHandler)
-        connectedDevices[device] = gatt
+        connectedDevices[device] = Pair(gatt, gattCallbackHandler)
     }
 
     @SuppressLint("MissingPermission")
     fun disconnectGatt(device: BluetoothDevice) {
-        connectedDevices[device]?.disconnect()
-        connectedDevices[device]?.close()
+        connectedDevices[device]?.first?.disconnect()
+        connectedDevices[device]?.first?.close()
         connectedDevices.remove(device)
-
         if (!devicesList.contains(device)) {
             devicesList.add(device)
             devicesLiveData.postValue(devicesList)
         }
-
-        viewModel.updateConnectionStatus(false)
     }
 
     fun getDevicesLiveData(): LiveData<List<BluetoothDevice>> = devicesLiveData
@@ -81,9 +75,26 @@ class BluetoothDeviceRepository(
     fun getDeviceAt(position: Int): BluetoothDevice = devicesList[position]
 
     fun getAvailableDevices(): List<BluetoothDevice> = devicesList
+
     fun disconnectAll() {
-        connectedDevices.forEach { (device, _) ->
-            disconnectGatt(device)
-        }
+        connectedDevices.forEach { (device, _) -> disconnectGatt(device) }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendStartSignalToDevice(device: BluetoothDevice) {
+        connectedDevices[device]?.second?.sendStartSignal()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendStopSignalToDevice(device: BluetoothDevice) {
+        connectedDevices[device]?.second?.sendStopSignal()
+    }
+
+    fun startCapture() {
+        connectedDevices.forEach { (device, _) -> sendStartSignalToDevice(device) }
+    }
+
+    fun stopCapture() {
+        connectedDevices.forEach { (device, _) -> sendStopSignalToDevice(device) }
     }
 }

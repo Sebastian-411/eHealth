@@ -3,12 +3,65 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
+    <!-- Textview to display title for patients data -->
+    <TextView
+        android:id="@+id/patientDataTitleTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Información del paciente:"
+        android:textSize="18sp"
+        android:textStyle="bold"/>
+
+    <!-- EditText for entering patient name -->
+    <EditText
+        android:id="@+id/patientNameEditText"
+        android:layout_width="match_parent"
+        android:paddingHorizontal="10dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/patientDataTitleTextView"
+        android:inputType="textPersonName"
+        android:layout_toLeftOf="@+id/startDataCaptureButton"
+        android:layout_weight="1"
+        android:hint="Nombre del paciente"/>
+
+    <!-- Button to start data capture -->
+    <Button
+        android:id="@+id/startDataCaptureButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Iniciar captura"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/patientDataTitleTextView"
+        android:enabled="false"/>
+
+    <!-- Button to stop data capture -->
+    <Button
+        android:id="@+id/stopDataCaptureButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Detener captura"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/patientDataTitleTextView"
+        android:visibility="invisible"
+        android:enabled="false"/>
+
+    <!-- Textview to display the list of connected devices -->
+    <TextView
+        android:id="@+id/connectedDevicesTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lista de dispositivos conectados:"
+        android:layout_below="@id/patientNameEditText"
+        android:textSize="18sp"
+        android:textStyle="bold"/>
+
     <!-- List of connected devices (with individual disconnect buttons) -->
     <ListView
         android:id="@+id/connectedDevicesListView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
+        android:background="@color/cardview_shadow_end_color"
+        android:layout_below="@id/connectedDevicesTextView"
         android:layout_marginTop="16dp"/>
 
     <!-- Button to start Bluetooth scanning -->
